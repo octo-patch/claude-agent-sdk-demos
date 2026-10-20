@@ -6,14 +6,13 @@ const DEFAULT_MODEL_MAP: Record<string, string> = {
   haiku: "claude-3-5-haiku-20241022"
 };
 
-export const MINIMAX_MODELS = ["MiniMax-M3", "MiniMax-M2.7"] as const;
+export const MINIMAX_MODELS = ["MiniMax-M3.1-Flash", "MiniMax-M3"] as const;
 
 export const MINIMAX_ENDPOINTS = {
   global_en: "https://api.minimax.io/anthropic",
   cn_zh: "https://api.minimaxi.com/anthropic"
 } as const;
 
-type MiniMaxModel = typeof MINIMAX_MODELS[number];
 type MiniMaxRegion = keyof typeof MINIMAX_ENDPOINTS;
 
 interface LlmEnvironment {
@@ -24,10 +23,6 @@ export interface LlmClientConfig {
   apiKey: string | undefined;
   baseURL?: string;
   model: string;
-}
-
-function isMiniMaxModel(model: string): model is MiniMaxModel {
-  return (MINIMAX_MODELS as readonly string[]).includes(model);
 }
 
 export function resolveLlmClientConfig(
@@ -62,23 +57,13 @@ export function resolveLlmClientConfig(
   }
 
   const configuredModel = environment.MINIMAX_MODEL?.trim();
-  if (configuredModel && !isMiniMaxModel(configuredModel)) {
-    throw new Error(`MINIMAX_MODEL must be one of: ${MINIMAX_MODELS.join(", ")}`);
-  }
-
   const perCallModel = requestedModel?.trim();
-  if (
-    perCallModel &&
-    !DEFAULT_MODEL_MAP[perCallModel] &&
-    !isMiniMaxModel(perCallModel)
-  ) {
-    throw new Error(`Unsupported MiniMax model: ${perCallModel}`);
-  }
 
   return {
     apiKey,
     baseURL,
-    model: perCallModel && isMiniMaxModel(perCallModel)
+    // Recommendations are not an allowlist: preserve explicit legacy/custom IDs.
+    model: perCallModel && !Object.prototype.hasOwnProperty.call(DEFAULT_MODEL_MAP, perCallModel)
       ? perCallModel
       : configuredModel || MINIMAX_MODELS[0]
   };
